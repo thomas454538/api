@@ -2,4 +2,4 @@ fastapi
 uvicorn
 pdfminer.six
 python-multipart
-requests
+pydantic
