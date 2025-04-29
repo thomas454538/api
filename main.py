@@ -8,6 +8,11 @@ from fastapi.responses import JSONResponse
 import io
 from pdfminer.high_level import extract_text_to_fp
 from pdfminer.layout import LAParams
+from pydantic import BaseModel
+import base64
+
+class PDFBase64Request(BaseModel):
+    file_base64: str
 
 app = FastAPI(
     title="PDF Text Extractor",
@@ -21,6 +26,23 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # bytes
 @app.get("/")
 async def root():
     return {"message": "bonjour l'api marche"}
+
+@app.post("/extract-text-base64")
+async def extract_text_base64(request: PDFBase64Request):
+    try:
+        contents = base64.b64decode(request.file_base64)
+        if len(contents) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=413, detail="File too large. Maximum size is 10 MB.")
+
+        output_string = io.StringIO()
+        with io.BytesIO(contents) as fp:
+            extract_text_to_fp(fp, output_string, laparams=LAParams())
+        text = output_string.getvalue()
+        cleaned = ' '.join(text.split())
+
+        return {"text": cleaned}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to extract text: {e}")
 
 @app.post("/extract-text", response_class=JSONResponse)
 async def extract_text(file: UploadFile = File(...)):
