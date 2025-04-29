@@ -8,6 +8,11 @@ import base64
 import io
 from pdfminer.high_level import extract_text_to_fp
 from pdfminer.layout import LAParams
+from pydantic import BaseModel
+
+class PDFPayload(BaseModel):
+    contentBytes: str
+    name: str = None
 
 # Initialiser l'application
 app = FastAPI(
@@ -48,15 +53,12 @@ async def extract_text(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'extraction : {str(e)}")
 
 @app.post("/extract-text-base64", response_class=JSONResponse)
-async def extract_text_base64(
-    contentBytes: str = Form(...),
-    name: str = Form(None)
-):
+async def extract_text_base64(payload: PDFPayload):
     """
-    Extraction de texte depuis un contenu base64 envoyé en multipart/form-data.
+    Extraction de texte depuis un contenu base64 envoyé en JSON.
     """
     try:
-        contents = base64.b64decode(contentBytes)
+        contents = base64.b64decode(payload.contentBytes)
 
         if len(contents) > MAX_FILE_SIZE:
             raise HTTPException(status_code=413, detail="Fichier trop volumineux. Maximum autorisé : 10 Mo.")
@@ -67,12 +69,7 @@ async def extract_text_base64(
         text = output_string.getvalue()
         cleaned_text = ' '.join(text.split())
         
-        return {"filename": name, "text": cleaned_text}
+        return {"filename": payload.name, "text": cleaned_text}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'extraction : {str(e)}")
-
-# Permet de lancer directement
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=10000, reload=True)
